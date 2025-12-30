@@ -6,6 +6,9 @@
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure, protectedProcedure } from '../trpc';
 import { calcularFGTS, validateFGTSInput, generateFGTSReportData } from '@/lib/calculadoras/trabalhista/fgts';
+import { calcularINSS } from '@/lib/calculadoras/previdenciario/inss';
+import { calcularAposentadoria } from '@/lib/calculadoras/previdenciario/aposentadoria';
+import { calcularPensaoAlimenticia } from '@/lib/calculadoras/familia/pensao-alimenticia';
 import { TRPCError } from '@trpc/server';
 
 // Input schemas
@@ -57,6 +60,45 @@ const progressaoRegimenInputSchema = z.object({
   dataInicioExecucao: z.coerce.date(),
   diasRemidos: z.number().min(0).optional(),
   reincidente: z.boolean(),
+});
+
+const inssInputSchema = z.object({
+  salarioBruto: z.number().min(0.01, 'Salário deve ser maior que zero'),
+  tipoContribuinte: z.enum(['empregado', 'domestico', 'contribuinte_individual', 'facultativo', 'mei', 'segurado_especial']),
+  planoContribuicao: z.enum(['normal', 'simplificado', 'baixa_renda']).optional(),
+  competencia: z.coerce.date(),
+  incluirPatronal: z.boolean().optional(),
+});
+
+const aposentadoriaInputSchema = z.object({
+  dataNascimento: z.coerce.date(),
+  sexo: z.enum(['masculino', 'feminino']),
+  tipoAposentadoria: z.enum(['idade', 'tempo_contribuicao', 'especial', 'professor', 'deficiencia']),
+  regime: z.enum(['rgps', 'rpps']),
+  tempoContribuicaoMeses: z.number().min(0),
+  mediaSalariosContribuicao: z.number().min(0),
+  carenciaCompleta: z.boolean(),
+  atividadeEspecial: z.object({
+    tipo: z.enum(['15_anos', '20_anos', '25_anos']),
+    tempoMeses: z.number().min(0),
+  }).optional(),
+});
+
+const pensaoAlimenticiaInputSchema = z.object({
+  tipoPensao: z.enum(['percentual_renda', 'valor_fixo', 'salarios_minimos', 'misto']),
+  rendaMensalAlimentante: z.number().min(0.01, 'Renda deve ser maior que zero'),
+  tipoRenda: z.enum(['empregado', 'autonomo', 'empresario', 'aposentado', 'desempregado']),
+  percentualPensao: z.number().min(0).max(100).optional(),
+  valorFixo: z.number().min(0).optional(),
+  quantidadeSalariosMinimos: z.number().min(0).optional(),
+  dataFixacao: z.coerce.date(),
+  dataCalculo: z.coerce.date(),
+  indiceCorrecao: z.enum(['inpc', 'ipca', 'igpm', 'salario_minimo']),
+  incluirDecimoTerceiro: z.boolean(),
+  incluirFerias: z.boolean(),
+  incluirPLR: z.boolean(),
+  quantidadeFilhos: z.number().min(1),
+  necessidadesEspeciais: z.boolean().optional(),
 });
 
 export const calculadorasRouter = createTRPCRouter({
@@ -115,6 +157,77 @@ export const calculadorasRouter = createTRPCRouter({
       );
 
       return reportData;
+    }),
+
+  // ==================
+  // PREVIDENCIÁRIO
+  // ==================
+
+  /**
+   * Calculate INSS contribution
+   */
+  inss: publicProcedure
+    .input(inssInputSchema)
+    .mutation(async ({ input }) => {
+      const result = calcularINSS({
+        salarioBruto: input.salarioBruto,
+        tipoContribuinte: input.tipoContribuinte,
+        planoContribuicao: input.planoContribuicao,
+        competencia: input.competencia,
+        incluirPatronal: input.incluirPatronal,
+      });
+
+      return result;
+    }),
+
+  /**
+   * Calculate retirement eligibility
+   */
+  aposentadoria: publicProcedure
+    .input(aposentadoriaInputSchema)
+    .mutation(async ({ input }) => {
+      const result = calcularAposentadoria({
+        dataNascimento: input.dataNascimento,
+        sexo: input.sexo,
+        tipoAposentadoria: input.tipoAposentadoria,
+        regime: input.regime,
+        tempoContribuicaoMeses: input.tempoContribuicaoMeses,
+        mediaSalariosContribuicao: input.mediaSalariosContribuicao,
+        carenciaCompleta: input.carenciaCompleta,
+        atividadeEspecial: input.atividadeEspecial,
+      });
+
+      return result;
+    }),
+
+  // ==================
+  // FAMÍLIA
+  // ==================
+
+  /**
+   * Calculate alimony
+   */
+  pensaoAlimenticia: publicProcedure
+    .input(pensaoAlimenticiaInputSchema)
+    .mutation(async ({ input }) => {
+      const result = calcularPensaoAlimenticia({
+        tipoPensao: input.tipoPensao,
+        rendaMensalAlimentante: input.rendaMensalAlimentante,
+        tipoRenda: input.tipoRenda,
+        percentualPensao: input.percentualPensao,
+        valorFixo: input.valorFixo,
+        quantidadeSalariosMinimos: input.quantidadeSalariosMinimos,
+        dataFixacao: input.dataFixacao,
+        dataCalculo: input.dataCalculo,
+        indiceCorrecao: input.indiceCorrecao,
+        incluirDecimoTerceiro: input.incluirDecimoTerceiro,
+        incluirFerias: input.incluirFerias,
+        incluirPLR: input.incluirPLR,
+        quantidadeFilhos: input.quantidadeFilhos,
+        necessidadesEspeciais: input.necessidadesEspeciais,
+      });
+
+      return result;
     }),
 
   // ==================
