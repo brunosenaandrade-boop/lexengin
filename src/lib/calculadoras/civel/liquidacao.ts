@@ -4,7 +4,7 @@
  */
 
 import Decimal from 'decimal.js';
-import { differenceInMonths, format, addMonths } from 'date-fns';
+import { differenceInMonths, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
@@ -16,8 +16,8 @@ export type TipoProcesso =
   | 'previdenciario'
   | 'familia';
 
-export type IndiceCorrecao = 'inpc' | 'ipca' | 'igpm' | 'tr' | 'selic' | 'ipca_e';
-export type TipoJuros = 'simples' | 'compostos';
+export type IndiceCorrecaoLiquidacao = 'inpc' | 'ipca' | 'igpm' | 'tr' | 'selic' | 'ipca_e';
+export type TipoJurosLiquidacao = 'simples' | 'compostos';
 
 export interface ParcelaLiquidacao {
   descricao: string;
@@ -32,8 +32,8 @@ export interface LiquidacaoInput {
   tipoProcesso: TipoProcesso;
   parcelas: ParcelaLiquidacao[];
   dataCalculo: Date;
-  indiceCorrecao: IndiceCorrecao;
-  tipoJuros: TipoJuros;
+  indiceCorrecao: IndiceCorrecaoLiquidacao;
+  tipoJuros: TipoJurosLiquidacao;
   taxaJuros: number; // Monthly rate
   dataInicioJuros?: Date; // Custom date for interest start
   honorariosAdvocaticios: number; // Percentage
@@ -81,7 +81,7 @@ export interface MemoriaCalculoLiquidacao {
 }
 
 // Simplified monthly correction rates (would come from BACEN API)
-const INDICES_MENSAIS: Record<IndiceCorrecao, number> = {
+const INDICES_MENSAIS: Record<IndiceCorrecaoLiquidacao, number> = {
   inpc: 0.004,
   ipca: 0.0035,
   igpm: 0.005,
@@ -242,7 +242,7 @@ export function calcularLiquidacao(input: LiquidacaoInput): LiquidacaoOutput {
  */
 function buildFundamentacao(
   tipoProcesso: TipoProcesso,
-  indice: IndiceCorrecao,
+  indice: IndiceCorrecaoLiquidacao,
   taxaJuros: number
 ): string {
   let base = `Liquidação de sentença conforme arts. 509 a 512 do CPC. `;
@@ -284,7 +284,7 @@ function buildFundamentacao(
 export function calcularIndiceAcumulado(
   dataInicio: Date,
   dataFim: Date,
-  indice: IndiceCorrecao
+  indice: IndiceCorrecaoLiquidacao
 ): { indiceAcumulado: number; meses: number } {
   const meses = differenceInMonths(dataFim, dataInicio);
   const taxaMensal = INDICES_MENSAIS[indice];

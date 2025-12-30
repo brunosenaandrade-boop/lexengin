@@ -4,7 +4,7 @@
  */
 
 import Decimal from 'decimal.js';
-import { differenceInYears, differenceInMonths, addYears, addMonths } from 'date-fns';
+import { differenceInYears, addYears, addMonths } from 'date-fns';
 
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 
@@ -81,6 +81,10 @@ const REQUISITOS_POS_REFORMA = {
     '20_anos': { idade: 58, contribuicao: 20 * 12 },
     '25_anos': { idade: 60, contribuicao: 25 * 12 },
   },
+  deficiencia: {
+    masculino: { idade: 55, contribuicao: 15 * 12 }, // Varies by degree of disability
+    feminino: { idade: 55, contribuicao: 15 * 12 },
+  },
 };
 
 /**
@@ -112,11 +116,16 @@ export function calcularAposentadoria(input: AposentadoriaInput): AposentadoriaO
   } else if (tipoAposentadoria === 'professor') {
     idadeMinima = REQUISITOS_POS_REFORMA.professor[sexo].idade;
     tempoMinimoMeses = REQUISITOS_POS_REFORMA.professor[sexo].contribuicao;
+  } else if (tipoAposentadoria === 'deficiencia') {
+    idadeMinima = REQUISITOS_POS_REFORMA.deficiencia[sexo].idade;
+    tempoMinimoMeses = REQUISITOS_POS_REFORMA.deficiencia[sexo].contribuicao;
+  } else if (tipoAposentadoria === 'tempo_contribuicao') {
+    idadeMinima = REQUISITOS_POS_REFORMA.tempo_contribuicao[sexo].idade;
+    tempoMinimoMeses = REQUISITOS_POS_REFORMA.tempo_contribuicao[sexo].contribuicao;
   } else {
-    const reqBase = REQUISITOS_POS_REFORMA[tipoAposentadoria] ||
-      REQUISITOS_POS_REFORMA.idade;
-    idadeMinima = reqBase[sexo].idade;
-    tempoMinimoMeses = reqBase[sexo].contribuicao;
+    // Default to 'idade' type
+    idadeMinima = REQUISITOS_POS_REFORMA.idade[sexo].idade;
+    tempoMinimoMeses = REQUISITOS_POS_REFORMA.idade[sexo].contribuicao;
   }
 
   const tempoMinimoAnos = Math.floor(tempoMinimoMeses / 12);
